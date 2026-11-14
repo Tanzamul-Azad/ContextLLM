@@ -285,7 +285,7 @@ Each test seed runs under no example, plain prompt, scope-inference prompt and e
 
 | What | Where |
 | --- | --- |
-| Code, seed format, seeds, prompts, every saved answer and score | [GitHub: Tanjamul-Azad/ContextLLM](https://github.com/Tanjamul-Azad/ContextLLM) |
+| Code, seed format, seeds, prompts, every saved answer and score | [GitHub: Tanzamul-Azad/ContextLLM](https://github.com/Tanzamul-Azad/ContextLLM) |
 | Browsable copy: proposal, dataset, results, Colab notebooks | [Google Drive: DL paper](https://drive.google.com/drive/folders/1PDY9RPmH4ioq-y9gHqcQZVryrqk3Xnwm) |
 | Pilot inputs and all model answers as a spreadsheet | Drive 03_Results: "Pilot data - inputs and every model answer" |
 | Results notebooks with outputs, and notebooks to re-run each experiment | `notebooks/results/` and `notebooks/`, linked from Drive |

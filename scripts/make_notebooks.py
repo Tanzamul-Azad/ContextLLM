@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "notebooks"
-REPO = "https://github.com/Tanjamul-Azad/ContextLLM.git"
+REPO = "https://github.com/Tanzamul-Azad/ContextLLM.git"
 
 SETUP = [
     "# Setup: GPU runtime (Runtime > Change runtime type > T4 GPU), then run this cell.\n",

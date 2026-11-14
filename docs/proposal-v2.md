@@ -176,4 +176,4 @@ Models: Qwen2.5-3B in bf16 on local hardware, a second 3–4B model from another
 - Golchin and Surdeanu. [Time Travel in LLMs: Tracing Data Contamination](https://arxiv.org/abs/2308.08493). ICLR 2024.
 - Shi et al. [Detecting Pretraining Data from Large Language Models](https://arxiv.org/abs/2310.16789). ICLR 2024.
 
-Code, saved outputs and supporting documents: [github.com/Tanjamul-Azad/ContextLLM](https://github.com/Tanjamul-Azad/ContextLLM).
+Code, saved outputs and supporting documents: [github.com/Tanzamul-Azad/ContextLLM](https://github.com/Tanzamul-Azad/ContextLLM).

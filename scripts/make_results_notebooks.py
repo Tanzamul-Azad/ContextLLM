@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "notebooks" / "results"
-REPO = "https://github.com/Tanjamul-Azad/ContextLLM.git"
+REPO = "https://github.com/Tanzamul-Azad/ContextLLM.git"
 MODELS = ["qwen2.5-3b", "qwen2.5-7b-4bit", "llama3.1-8b-4bit", "gpt-4.1-mini", "gpt-5.4-mini", "gpt-5.4"]
 
 SETUP = """# Works locally (run from the repo) and in Colab (clones the public repo; no GPU needed).
