@@ -11,6 +11,8 @@ Usage:
                       record, token counts, spans without a token and tokens that straddle two spans
   --pool NAME         pool name for all cards (default: the card's `split`, or "unassigned")
   --no-lint           export cards even when the draft lint reports errors (default: refuse them)
+  --positions LIST    example positions for single-turn records, e.g. start,middle,end (default: end, the
+                      layout of all earlier runs); non-default positions add "::<position>" to the record id
 
 Exports of a test pool (pool name starting with "test") are never written inside this repository (spec 9).
 
@@ -71,8 +73,9 @@ def _example_message(turns):
     return 0 if turns == "single" else 2
 
 
-def build_record(card, path, variant, turns, perturbed, pool=None, sha=None):
-    messages = L1.build_messages(card, variant, turns, perturbed)
+def build_record(card, path, variant, turns, perturbed, pool=None, sha=None, position=L1.DEFAULT_POSITION):
+    pos_used = position if turns == "single" else None
+    messages = L1.build_messages(card, variant, turns, perturbed, position)
     mi = _example_message(turns)
     ex = L1.source_text(card, perturbed)
     content = messages[mi]["content"]
@@ -114,7 +117,8 @@ def build_record(card, path, variant, turns, perturbed, pool=None, sha=None):
     checks = [{"id": it["check"]["id"], "list": it["list"], "kind": it["check"]["spec"][0], "units": list(it["check"].get("units") or [])}
               for it in V2.iter_checks(card, variant)]
     rec = {
-        "record_id": f"{card['id']}::{variant['id']}::{turns}::{'ctrl' if perturbed else 'orig'}",
+        "record_id": f"{card['id']}::{variant['id']}::{turns}::{'ctrl' if perturbed else 'orig'}"
+                     + (f"::{pos_used}" if pos_used and pos_used != L1.DEFAULT_POSITION else ""),
         "card_id": card["id"], "variant_id": variant["id"], "schema": card["schema"], "exporter_version": EXPORTER_VERSION,
         "card_sha256": sha or (card_sha256(path) if path else None),
         "pool": pool_of(card, pool), "split": card.get("split"), "subset": V2.variant_subset(card, variant),
@@ -122,7 +126,7 @@ def build_record(card, path, variant, turns, perturbed, pool=None, sha=None):
         "template_group_id": card["template_group_id"], "provenance_group_id": card["provenance_group_id"],
         "source_type": card["provenance"]["source_type"], "model_assistance": card["model_assistance"],
         "role": variant["role"], "role_id": V2.ROLE_ID[variant["role"]], "cue": variant["cue"], "fit": variant["fit"],
-        "turns": turns, "perturbed": perturbed, "messages": messages,
+        "turns": turns, "perturbed": perturbed, "position": pos_used, "messages": messages,
         "example_location": {"message_index": mi, "char_start": base, "char_end": base + len(ex)},
         "spans": spans, "licence": licence, "evidence": evidence, "checks": checks,
         "valid_answers": [{"id": a["id"], "text": a["text"]} for a in variant["valid_answers"]],
@@ -155,15 +159,17 @@ def siblings(card, variant, turns, perturbed):
     return out
 
 
-def export_card(card, path=None, pool=None):
-    """All training records of one card, in a fixed order: variants, single before multi, orig before ctrl."""
+def export_card(card, path=None, pool=None, positions=(L1.DEFAULT_POSITION,)):
+    """All training records of one card, in a fixed order: variants, single before multi, orig before ctrl,
+    then example positions in the order given. Multi-turn records are written once (position does not apply)."""
     sha = card_sha256(path) if path else None
     out = []
     for v in card["variants"]:
         ctrl = V2.control_applies(card, v)
         for turns in ("single", "multi"):
             for perturbed in (False, True) if ctrl else (False,):
-                out.append(build_record(card, path, v, turns, perturbed, pool, sha))
+                for position in (positions if turns == "single" else (L1.DEFAULT_POSITION,)):
+                    out.append(build_record(card, path, v, turns, perturbed, pool, sha, position))
     return out
 
 
@@ -432,6 +438,8 @@ def main(argv=None):
     ap.add_argument("--out-dir")
     ap.add_argument("--check-tokens", nargs="+", metavar="TOKENIZER")
     ap.add_argument("--no-lint", action="store_true")
+    ap.add_argument("--positions", default=L1.DEFAULT_POSITION,
+                    help="comma-separated example positions for single-turn records: start, middle, end (default: end)")
     a = ap.parse_args(argv)
     files, cards = L.load(a.paths)
     good = []
@@ -446,7 +454,11 @@ def main(argv=None):
                 return 1
         good.append((f, c))
     pools = sorted({pool_of(c, a.pool) for _, c in good})
-    records = [r for f, c in good for r in export_card(c, f, a.pool)]
+    positions = tuple(x.strip() for x in a.positions.split(",") if x.strip())
+    bad = [x for x in positions if x not in L1.POSITIONS]
+    if bad:
+        raise ExportError(f"unknown position(s) {bad}; use {L1.POSITIONS}")
+    records = [r for f, c in good for r in export_card(c, f, a.pool, positions)]
     print(f"{len(good)} card(s), {len(records)} record(s), pools {pools}")
     if a.records:
         for p in pools:

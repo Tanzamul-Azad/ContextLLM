@@ -535,11 +535,11 @@ Each statement is a condition that must hold; the linter reports the rule ID whe
 
 Exports of the hidden test pool are written only to the private test location (WP1.7), never into the public repository.
 
-### 9.1 Training record (one JSON line per variant x turns x control)
+### 9.1 Training record (one JSON line per variant x turns x control x example position)
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `record_id` | str | `<card_id>::<variant_id>::<single or multi>::<orig or ctrl>` |
+| `record_id` | str | `<card_id>::<variant_id>::<single or multi>::<orig or ctrl>`, plus `::start` or `::middle` for a single-turn record in a non-default position |
 | `card_id`, `variant_id` | str | |
 | `schema`, `exporter_version`, `card_sha256` | str | Card schema, exporter version, hash of the card file |
 | `pool`, `split` | str | Pool name (calibration, development, test_familiar, test_heldout_relation, test_heldout_domain, natural, training) and split |
@@ -549,7 +549,8 @@ Exports of the hidden test pool are written only to the private test location (W
 | `cue`, `fit` | str | |
 | `turns` | str | `single` or `multi` |
 | `perturbed` | bool | True for the control build |
-| `messages` | list | `seed_lint_v1.build_messages(card, variant, turns, perturbed)` |
+| `position` | str or null | Single-turn layout (added 19 Nov 2026): `start` (example, task, rules, format), `middle` (task, example, rules, format) or `end` (task, rules, example, format; the default and the layout of all earlier runs). `null` for multi-turn records. Chosen with `export_v2.py --positions` |
+| `messages` | list | `seed_lint_v1.build_messages(card, variant, turns, perturbed, position)` |
 | `example_location` | obj | `{message_index, char_start, char_end}` of the example inside that message's content |
 | `spans` | list | One per span: `{span_id, kind, unit, label, basis, message_index, char_start, char_end}`; `label` is the final label, else the author's; context spans have `label: null` |
 | `licence` | obj | The expanded licence: `{unit_id: {label, basis, implication, proposed, final}}` |

@@ -105,15 +105,37 @@ def target_text(card, variant=None):
     return card["target"]["task"] + "\n" + " ".join(r["text"] for r in rules_for(card, variant))
 
 
-def build_messages(card, variant, turns="single", perturbed=False):
-    """Prompt for one variant. Multi-turn carries the same information as single-turn."""
-    head = card["target"]["task"] + "\nRules: " + " ".join(r["text"] for r in rules_for(card, variant))
+POSITIONS = ("start", "middle", "end")
+DEFAULT_POSITION = "end"
+
+
+def build_messages(card, variant, turns="single", perturbed=False, position=DEFAULT_POSITION):
+    """Prompt for one variant. Multi-turn carries the same information as single-turn.
+
+    `position` places the example block in a single-turn prompt (MASTER-PLAN v1.7):
+      start   example, task, rules, format
+      middle  task, example, rules, format
+      end     task, rules, example, format   (the layout of every earlier run)
+    The output format line stays last in all three. Multi-turn ignores `position`: the example always
+    arrives in the third message.
+    """
+    if position not in POSITIONS:
+        raise ValueError(f"position must be one of {POSITIONS}, got {position!r}")
+    task = card["target"]["task"]
+    rules = "Rules: " + " ".join(r["text"] for r in rules_for(card, variant))
+    head = task + "\n" + rules
     fmt = card["target"]["format"]
     if variant is None:
         return [{"role": "user", "content": f"{head}\n\n{fmt}"}]
     ex = variant["text"].replace("{EX}", source_text(card, perturbed))
     if turns == "single":
-        return [{"role": "user", "content": f"{head}\n\n{ex}\n\n{fmt}"}]
+        if position == "start":
+            body = f"{ex}\n\n{head}"
+        elif position == "middle":
+            body = f"{task}\n\n{ex}\n\n{rules}"
+        else:
+            body = f"{head}\n\n{ex}"
+        return [{"role": "user", "content": f"{body}\n\n{fmt}"}]
     return [
         {"role": "user", "content": f"{head}\n\n{fmt}"},
         {"role": "assistant", "content": "Understood. Is there anything else I should take into account before I give the final answer?"},
@@ -121,8 +143,8 @@ def build_messages(card, variant, turns="single", perturbed=False):
     ]
 
 
-def prompt_text(card, variant, perturbed=False):
-    return build_messages(card, variant, "single", perturbed)[0]["content"]
+def prompt_text(card, variant, perturbed=False, position=DEFAULT_POSITION):
+    return build_messages(card, variant, "single", perturbed, position)[0]["content"]
 
 
 class Report:

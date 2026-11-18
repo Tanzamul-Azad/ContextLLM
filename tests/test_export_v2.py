@@ -278,6 +278,62 @@ def test_token_labels_match_a_character_level_reference():
         assert out["token_labels"][t] == want, (t, rendered[a:b], s["span_id"])
 
 
+# ---------------------------------------------------------------- example position (MASTER-PLAN v1.7)
+def test_default_position_keeps_the_old_layout():
+    import seed_lint_v1 as L1
+    c, _ = load("D01_stockholm_parking")
+    v = c["variants"][0]
+    head = c["target"]["task"] + "\nRules: " + " ".join(r["text"] for r in L1.rules_for(c, v))
+    ex = v["text"].replace("{EX}", L1.source_text(c))
+    assert L1.prompt_text(c, v) == f"{head}\n\n{ex}\n\n{c['target']['format']}"
+
+
+def test_positions_order_the_blocks_and_keep_format_last():
+    import seed_lint_v1 as L1
+    for n in NAMES:
+        c, _ = load(n)
+        for v in c["variants"]:
+            ex = v["text"].replace("{EX}", L1.source_text(c))
+            task, fmt = c["target"]["task"], c["target"]["format"]
+            rules = "Rules: " + " ".join(r["text"] for r in L1.rules_for(c, v))
+            for pos, order in (("start", (ex, task, rules)), ("middle", (task, ex, rules)), ("end", (task, rules, ex))):
+                t = L1.prompt_text(c, v, position=pos)
+                idx = [t.index(x) for x in order]
+                assert idx == sorted(idx), (n, v["id"], pos)
+                assert t.endswith(fmt) and t.count(ex) == 1, (n, v["id"], pos)
+
+
+def test_position_records_have_valid_spans_and_unique_ids():
+    for n in NAMES:
+        c, p = load(n)
+        recs = E.export_card(c, p, positions=("start", "middle", "end"))
+        base = E.export_card(c, p)
+        n_single = sum(1 for r in base if r["turns"] == "single")
+        assert len(recs) == len(base) + 2 * n_single
+        ids = [r["record_id"] for r in recs]
+        assert len(ids) == len(set(ids))
+        for r in recs:
+            assert r["position"] == (None if r["turns"] == "multi" else r["position"])
+            content = r["messages"][r["example_location"]["message_index"]]["content"]
+            src = {s["id"]: s for s in (V2.control_spans(c) if r["perturbed"] else c["source_spans"])}
+            for s in r["spans"]:
+                assert content[s["char_start"]:s["char_end"]] == src[s["span_id"]]["text"], (r["record_id"], s["span_id"])
+            for e in r["evidence"]:
+                m = r["messages"][e["message_index"]]["content"]
+                assert m[e["char_start"]:e["char_end"]] == e["quote"]
+        assert {r["position"] for r in recs if r["turns"] == "single"} == {"start", "middle", "end"}
+
+
+def test_unknown_position_is_refused():
+    import seed_lint_v1 as L1
+    c, _ = load("C01_calver_compare")
+    try:
+        L1.build_messages(c, c["variants"][0], "single", position="top")
+    except ValueError:
+        return
+    raise AssertionError("an unknown position was accepted")
+
+
 if __name__ == "__main__":
     fails = passed = 0
     for name, fn in list(globals().items()):
