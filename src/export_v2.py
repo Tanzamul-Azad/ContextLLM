@@ -208,6 +208,7 @@ def token_labels(record, tokenizer, context_as_may=False, template_kw=None):
         abs_spans.append((a, a + (s["char_end"] - s["char_start"]), s))
     labels, ranges = [], {}
     diag = {"tokens": len(ids), "straddling": 0, "straddling_different_label": 0, "straddling_licensed_conflict": 0, "ties": 0, "straddling_example_edge": 0,
+            "straddling_nonspace": 0, "straddling_nonspace_licensed_conflict": 0,
             "licensed_spans_without_overlapping_token": [], "licensed_spans_without_labelled_token": []}
     labelled = set()
     ex_a = offs[record["example_location"]["message_index"]] + record["example_location"]["char_start"]
@@ -238,6 +239,14 @@ def token_labels(record, tokenizer, context_as_may=False, template_kw=None):
                 diag["straddling_licensed_conflict"] += 1   # two licensed spans with different labels share this token
         if len(winners) > 1:
             diag["ties"] += 1
+        # the same counts with whitespace ignored: a token such as " tax" that touches the space ending the previous
+        # span is not a real straddle; only overlaps on non-space characters are counted here
+        nonspace = [k2 for _, k2 in ov
+                    if rendered[max(a, abs_spans[k2][0]):min(b, abs_spans[k2][1])].strip()]
+        if len(nonspace) > 1:
+            diag["straddling_nonspace"] += 1
+            if len({abs_spans[x][2]["label"] for x in nonspace if abs_spans[x][2]["kind"] != "context"}) > 1:
+                diag["straddling_nonspace_licensed_conflict"] += 1
         s = abs_spans[k][2]
         if s["kind"] == "context":
             labels.append(LABEL_ID["MAY"] if context_as_may else IGNORE)
@@ -480,12 +489,14 @@ def main(argv=None):
         from transformers import AutoTokenizer
         for name in a.check_tokens:
             tok = AutoTokenizer.from_pretrained(name, local_files_only=True)
-            tot = {"records": 0, "tokens": 0, "straddling": 0, "straddling_different_label": 0, "straddling_licensed_conflict": 0, "ties": 0, "no_overlap": 0, "no_label": 0}
+            tot = {"records": 0, "tokens": 0, "straddling": 0, "straddling_different_label": 0, "straddling_licensed_conflict": 0, "ties": 0,
+                   "straddling_nonspace": 0, "straddling_nonspace_licensed_conflict": 0, "no_overlap": 0, "no_label": 0}
             for r in records:
                 d = token_labels(r, tok)["diagnostics"]
                 tot["records"] += 1
                 tot["tokens"] += d["tokens"]
-                for k in ("straddling", "straddling_different_label", "straddling_licensed_conflict", "ties"):
+                for k in ("straddling", "straddling_different_label", "straddling_licensed_conflict", "ties",
+                          "straddling_nonspace", "straddling_nonspace_licensed_conflict"):
                     tot[k] += d[k]
                 tot["no_overlap"] += len(d["licensed_spans_without_overlapping_token"])
                 tot["no_label"] += len(d["licensed_spans_without_labelled_token"])
